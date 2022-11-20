@@ -82,7 +82,7 @@ def h3_to_features(cell: str) -> list[geojson.Feature]:
     return res
 
 
-def h3s_to_feature_collection(cells: set[str]) -> geojson.FeatureCollection:
+def h3s_to_feature_collection(cells: set[str], list_cells=True) -> geojson.FeatureCollection:
     """Returns the geojson feature collection representing the provided h3 cells.
 
     Cell polygons may be split on the anti-meridian.
@@ -90,7 +90,9 @@ def h3s_to_feature_collection(cells: set[str]) -> geojson.FeatureCollection:
     features = []
     for cell in cells:
         features += h3_to_features(cell)
-    return geojson.FeatureCollection(features)
+    feature_collection = geojson.FeatureCollection(features)
+    feature_collection['properties'] = {"h3_cells": cells}
+    return feature_collection
 
 
 def geojson_polygon_to_h3cells(
