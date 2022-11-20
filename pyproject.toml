@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "seeh3"
+version = "0.1.0"
+description = "FastAPI app to generate h3 grids in geojson."
+authors = ["datadavev <605409+datadavev@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+h3 = {version = "^4.0.0b1", allow-prereleases = true}
+antimeridian-splitter = {git = "https://github.com/datadavev/antimeridian_splitter.git"}
+geojson = "^2.5.0"
+fastapi = "^0.87.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+uvicorn = {extras = ["standard"], version = "^0.20.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

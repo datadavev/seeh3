@@ -1,0 +1,4 @@
+fastapi
+geojson
+h3==4.0.0b1
+git+https://github.com/datadavev/antimeridian_splitter.git

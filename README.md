@@ -1,2 +1,4 @@
 # seeh3
-FastAPI app to generate h3 grids in geojson
+
+FastAPI app to generate h3 grids in geojson.
+

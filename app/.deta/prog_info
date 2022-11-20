@@ -1,0 +1,1 @@
+{"id":"9247e780-2e6c-4e5e-a3ed-36192cb6223b","space":3185,"runtime":"python3.9","name":"app","path":"s9xsbh","project":"b0skaydx","account":"144798365827","region":"us-east-1","deps":["fastapi","geojson","h3==4.0.0b1","git+https://github.com/datadavev/antimeridian_splitter.git"],"envs":null,"public":true,"log_level":"off","cron":""}
