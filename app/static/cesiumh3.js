@@ -1,22 +1,9 @@
 const GLOBAL_RECT = "-180,90,180,-90";
-const COLORS = [
-    Cesium.Color.fromCssColorString('#8a00e2'),
-    Cesium.Color.fromCssColorString('#9428e3'),
-    Cesium.Color.fromCssColorString('#9d3de4'),
-    Cesium.Color.fromCssColorString('#a54fe4'),
-    Cesium.Color.fromCssColorString('#ae5fe4'),
-    Cesium.Color.fromCssColorString('#b56ee4'),
-    Cesium.Color.fromCssColorString('#bd7ce4'),
-    Cesium.Color.fromCssColorString('#c48ae4'),
-    Cesium.Color.fromCssColorString('#cb99e3'),
-    Cesium.Color.fromCssColorString('#d2a6e2'),
-    Cesium.Color.fromCssColorString('#d8b4e0'),
-    Cesium.Color.fromCssColorString('#dec2de'),
-    Cesium.Color.fromCssColorString('#e5d0dc'),
-    Cesium.Color.fromCssColorString('#ebded8'),
-    Cesium.Color.fromCssColorString('#f2ebd3'),
-    Cesium.Color.fromCssColorString('#fbf9c8')
-]
+const color_scale = chroma.scale(["yellow","red"]).padding(0.1).classes(16);
+let COLORS = [];
+for (let i=0; i < 16; i++) {
+    COLORS.push(Cesium.Color.fromCssColorString(color_scale(i/15.0).hex()));
+}
 
 
 function d(rd) {
