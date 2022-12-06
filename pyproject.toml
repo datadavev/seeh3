@@ -12,10 +12,13 @@ h3 = {version = "^4.0.0b1", allow-prereleases = true}
 antimeridian-splitter = {git = "https://github.com/datadavev/antimeridian_splitter.git"}
 geojson = "^2.5.0"
 fastapi = "^0.87.0"
+requests = "^2.28.1"
+Jinja2 = "^3.1.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
 uvicorn = {extras = ["standard"], version = "^0.20.0"}
+jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]

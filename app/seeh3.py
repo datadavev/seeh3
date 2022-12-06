@@ -2,6 +2,8 @@ import typing
 import antimeridian_splitter
 import geojson
 import h3
+import math
+import requests
 
 # These are H3 cells from resolutions 0-16 that overlap the north or south poles
 POLES = {
@@ -49,8 +51,13 @@ POLES = {
     "8ef2939520c684f",
 }
 
+class RecordCount(typing.TypedDict):
+    n: int
+    rn: float
+    ln: float
 
-def h3_to_features(cell: str) -> list[geojson.Feature]:
+
+def h3_to_features(cell: str, cell_props:dict={}) -> list[geojson.Feature]:
     """Given a h3 cell, return one or more geojson Features representing the cell.
 
     More than one feature may be returned if the polygon is split on the
@@ -69,30 +76,106 @@ def h3_to_features(cell: str) -> list[geojson.Feature]:
         polygon, output_format="geojsondict"
     )
     res = []
+    props = {
+        "h3": cell,
+        "km2": h3.cell_area(cell, unit="km^2"),
+    }
+    props.update(cell_props)
     for p in split_polygons:
         res.append(
             geojson.Feature(
                 geometry=p,
-                properties={
-                    "h3": cell,
-                    "km2": h3.cell_area(cell, unit="km^2"),
-                },
+                properties=props,
             )
         )
     return res
 
 
-def h3s_to_feature_collection(cells: set[str], list_cells=True) -> geojson.FeatureCollection:
+def h3s_to_feature_collection(cells: set[str], cell_props:dict={}) -> geojson.FeatureCollection:
     """Returns the geojson feature collection representing the provided h3 cells.
 
     Cell polygons may be split on the anti-meridian.
     """
     features = []
     for cell in cells:
-        features += h3_to_features(cell)
+        props = cell_props.get(cell, {})
+        features += h3_to_features(cell, cell_props = props)
     feature_collection = geojson.FeatureCollection(features)
     feature_collection['properties'] = {"h3_cells": cells}
     return feature_collection
+
+
+def get_record_counts0(cells, query="*:*"):
+    dlm = ",\n"
+    resolution = h3.get_resolution(list(cells)[0])
+    facet = (f'facet(isb_core_records{dlm}'
+             f'q="{query}"{dlm}'
+             f'fq="producedBy_samplingSite_location_h3_{resolution}:({" ".join(cells)})"{dlm}'
+             f'buckets="producedBy_samplingSite_location_h3_{resolution}"{dlm}count(*),rows=-1)')
+    response = requests.post("http://localhost:8984/solr/isb_core_records/stream",data={"expr":facet}).json()
+    counts = {}
+    fname = f'producedBy_samplingSite_location_h3_{resolution}'
+    total = 0
+    for entry in response.get('result-set',{}).get('docs',[]):
+        try:
+            h = entry[fname]
+            n = entry["count(*)"]
+            total += n
+            counts[h] = {"n": n, "rn":0}
+        except KeyError as e:
+            pass
+    if total == 0:
+        log_total = 0
+    else:
+        log_total = math.log(total)
+    for k,v in counts.items():
+        nv = v
+        nv["rn"] = v["n"]/total
+        if v["n"] > 0:
+            nv["ln"] = math.log(v["n"])/log_total
+        else:
+            nv["ln"] = 0
+        counts[k] = nv
+    return counts
+
+
+def get_record_counts(query:str="*:*", resolution:int=1, exclude_poles:bool=True)->dict[str, RecordCount]:
+    '''
+    Facet records matching query on resolution, returning dict with keys being h3.
+    '''
+    dlm = ",\n"
+    coll_name = "isb_core_records"
+    solr_service = f"http://localhost:8984/solr/{coll_name}/stream"
+    field_name = f"producedBy_samplingSite_location_h3_{resolution}"
+    facet = (f'facet({coll_name}{dlm}'
+             f'q="{query}"{dlm}'             
+             f'buckets="{field_name}"{dlm}count(*),rows=-1)')
+
+    print(facet)
+
+    response = requests.post(solr_service, data={"expr":facet}).json()
+    counts={}
+    total = 0
+    for entry in response.get('result-set',{}).get('docs',[]):
+        try:
+            h = entry[field_name]
+            if h not in POLES or not exclude_poles:
+                n = entry["count(*)"]
+                total += n
+                counts[h] = {"n": n, "rn":0, "ln":0,}
+        except KeyError as e:
+            pass
+    if total == 0:
+        log_total = 0
+    else:
+        log_total = math.log(total)
+    for k in counts.keys():
+        counts[k]["rn"] = counts[k]["n"]/total
+        if counts[k]["n"] > 0:
+            counts[k]["ln"] = math.log(counts[k]["n"])/log_total
+        else:
+            counts[k]["ln"] = 0
+    return counts
 
 
 def geojson_polygon_to_h3cells(

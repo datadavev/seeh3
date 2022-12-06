@@ -2,10 +2,13 @@
 Fast API app for generating h3 grids.
 """
 
+import math
 import typing
 import fastapi
 import fastapi.middleware.cors
 import fastapi.responses
+import fastapi.staticfiles
+import fastapi.templating
 import geojson
 import seeh3
 
@@ -24,6 +27,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", fastapi.staticfiles.StaticFiles(directory="static"), name="static")
+
+templates = fastapi.templating.Jinja2Templates(directory="templates")
 
 BB_REGEX = "^([+-]?[0-9]+(\.[0-9]+)?,?){4}$"
 
@@ -111,6 +118,84 @@ def get_h3_grid(
     return seeh3.h3s_to_feature_collection(cells)
 
 
-@app.get("/")
-def default():
-    return fastapi.responses.RedirectResponse("/docs")
+def clip_float(v: float, min_v: float, max_v: float) -> float:
+    if v < min_v:
+        return min_v
+    if v > max_v:
+        return max_v
+    return v
+
+
+def estimate_resolution(bb) -> int:
+    if bb is None:
+        return 1
+    dx = abs(bb[2] - bb[0])
+    if dx > 90:
+        return 2
+    if dx > 45:
+        return 3
+    if dx > 22:
+        return 4
+    if dx > 10:
+        return 5
+    if dx > 5:
+        return 6
+    if dx > 2:
+        return 7
+    if dx > 1:
+        return 8
+    if dx > 0.5:
+        return 9
+    if dx > 0.1:
+        return 10
+    return 10
+
+
+@app.get(
+    "/counts/",
+    name="Get H3 GeoJSON grid of record counts",
+    description=(
+            "Return a GeoJSON feature collection of H3 cells for the "
+            "provided bounding box or globally. "
+            "bb is min_longitude, min_latitude, max_longitude, max_latitude"
+    ),
+)
+def get_h3_grid(
+    resolution: typing.Optional[int] = resolution_q,
+    exclude_poles: bool = exclude_poles_q,
+    bb: typing.Optional[str] = bb_q,
+    q: str = None,
+) -> geojson.FeatureCollection:
+    fq = None
+    if bb is not None and len(bb) > 4:
+        bbox = bb.split(",")
+        bbox = [float(v) for v in bbox]
+        bbox[0] = clip_float(bbox[0], -180, 180)
+        bbox[1] = clip_float(bbox[1], -90, 90)
+        bbox[2] = clip_float(bbox[2], -180, 180)
+        bbox[3] = clip_float(bbox[3], -90, 90)
+        fq = f"producedBy_samplingSite_location_ll:[{bbox[1]},{bbox[0]} TO {bbox[3]},{bbox[2]}]"
+        if q is None:
+            q = fq
+        else:
+            q = f"{q} AND {fq}"
+        if resolution is None:
+            resolution = estimate_resolution(bbox)
+    if q is None:
+        q = "*:*"
+    record_counts = seeh3.get_record_counts(
+        query=q, resolution=resolution, exclude_poles=exclude_poles
+    )
+    return seeh3.h3s_to_feature_collection(
+        set(record_counts.keys()), cell_props=record_counts
+    )
+
+
+@app.get("/3", response_class=fastapi.responses.HTMLResponse)
+def default(request: fastapi.requests.Request):
+    return templates.TemplateResponse("viewer3d.html", {"request": request})
+
+
+@app.get("/", response_class=fastapi.responses.HTMLResponse)
+def default(request: fastapi.requests.Request):
+    return templates.TemplateResponse("viewer2d.html", {"request": request})
